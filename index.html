@@ -110,9 +110,9 @@
 <body>
 <main>
   <div id="stats">
-    <span>level <b id="level">1</b></span>
     <span>streak <b id="streak">0</b></span>
     <span>speed <b id="speed">—</b></span>
+    <span>best <b id="best">—</b></span>
   </div>
   <div id="display"><button id="start" autofocus>Start</button></div>
   <input id="answer" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="type the english word" disabled>
@@ -140,22 +140,25 @@ function decodeTier(blob) {
 const WORDS = {};
 for (const tier in ENCODED) WORDS[tier] = decodeTier(ENCODED[tier]);
 
-const STREAK_TO_LEVEL_UP = 5;        // correct answers in a row to level up
-const MISSES_TO_LEVEL_DOWN = 2;      // total misses within a level to level down
-const START_SYLLABLE_DURATION = 700; // ms per syllable at level 1
-const MIN_SYLLABLE_DURATION = 45;
-const DURATION_FACTOR = 0.88;        // per-syllable time shrinks 12% per level
+const START_SYLLABLE_MS = 700; // starting ms per syllable
+const MIN_SYLLABLE_MS = 45;    // fastest possible
+const MAX_SYLLABLE_MS = 900;   // slowest possible
+const CORRECT_STEP = 25;       // ms/syllable removed per correct answer
+const INCORRECT_STEP = 50;     // ms/syllable added per wrong answer
+
+// Every word, all lengths, in play from the start.
+const ALL_WORDS = Object.keys(WORDS).reduce((all, tier) => all.concat(WORDS[tier]), []);
 
 const display = document.getElementById("display");
 const answer = document.getElementById("answer");
 const hint = document.getElementById("hint");
-const levelEl = document.getElementById("level");
 const streakEl = document.getElementById("streak");
 const speedEl = document.getElementById("speed");
+const bestEl = document.getElementById("best");
 
-let level = 1;
+let syllableMs = START_SYLLABLE_MS;
+let best = START_SYLLABLE_MS;
 let streak = 0;
-let missesThisLevel = 0;
 let currentWord = null;
 let awaiting = false;
 let recentWords = [];
@@ -165,23 +168,8 @@ function syllables(word) {
   return Math.max(1, (word.match(/[аеёиоуыэюя]/g) || []).length);
 }
 
-function syllableDuration() {
-  return Math.max(MIN_SYLLABLE_DURATION, Math.round(START_SYLLABLE_DURATION * Math.pow(DURATION_FACTOR, level - 1)));
-}
-
 function duration(word) {
-  return syllableDuration() * syllables(word);
-}
-
-// Which length tiers are in play: a window a few tiers wide so there's always
-// a mix of lengths. The window slides up as the level climbs — longer tiers
-// unlock and the shortest ones fade out.
-function pool() {
-  const maxTier = Math.min(4, 1 + Math.floor((level + 2) / 3));
-  const minTier = Math.max(1, maxTier - 2);
-  let words = [];
-  for (let tier = minTier; tier <= maxTier; tier++) words = words.concat(WORDS[tier]);
-  return words;
+  return syllableMs * syllables(word);
 }
 
 function pickWord() {
@@ -190,20 +178,19 @@ function pickWord() {
   const readyIndex = retryQueue.findIndex((item) => item.due <= 0);
   if (readyIndex !== -1) return retryQueue.splice(readyIndex, 1)[0].word;
 
-  const words = pool();
   let word;
   do {
-    word = words[Math.floor(Math.random() * words.length)];
-  } while (recentWords.includes(word.russian) && words.length > recentWords.length);
+    word = ALL_WORDS[Math.floor(Math.random() * ALL_WORDS.length)];
+  } while (recentWords.includes(word.russian) && ALL_WORDS.length > recentWords.length);
   recentWords.push(word.russian);
   if (recentWords.length > 15) recentWords.shift();
   return word;
 }
 
 function updateStats() {
-  levelEl.textContent = level;
   streakEl.textContent = streak;
-  speedEl.textContent = syllableDuration() + " ms/syllable";
+  speedEl.textContent = syllableMs + " ms/syllable";
+  bestEl.textContent = best + " ms/syllable";
 }
 
 function nextRound(delay) {
@@ -235,25 +222,16 @@ function check() {
   const correct = currentWord.answers.includes(normalize(answer.value));
   if (correct) {
     streak++;
+    syllableMs = Math.max(MIN_SYLLABLE_MS, syllableMs - CORRECT_STEP); // faster
+    best = Math.min(best, syllableMs);
     display.innerHTML = '<span class="feedback-good">correct</span>';
     hint.textContent = "";
-    if (streak >= STREAK_TO_LEVEL_UP) {
-      level++;
-      streak = 0;
-      missesThisLevel = 0;
-      hint.textContent = "level up";
-    }
   } else {
     streak = 0;
-    missesThisLevel++;
+    syllableMs = Math.min(MAX_SYLLABLE_MS, syllableMs + INCORRECT_STEP); // slower
     display.innerHTML = '<span class="feedback-bad">' + currentWord.russian + '</span>';
     hint.textContent = "answer: " + currentWord.answers[0]
       + (answer.value.trim() ? " — you typed: " + answer.value.trim() : "");
-    if (missesThisLevel >= MISSES_TO_LEVEL_DOWN && level > 1) {
-      level--;
-      missesThisLevel = 0;
-      hint.textContent += " — level down";
-    }
     shakeAnswer();
     // Bring the missed word back a few rounds later for another read.
     if (!retryQueue.some((item) => item.word.russian === currentWord.russian)) {
