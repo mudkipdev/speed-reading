@@ -6,14 +6,28 @@
 <title>Speed Reading</title>
 <style>
   :root {
+    color-scheme: light dark;
     --bg: #fafafa;
     --fg: #1a1a1a;
     --muted: #999;
+    --line: #ddd;
     --accent: #2563eb;
     --good: #16a34a;
     --bad: #dc2626;
   }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1b1d;
+      --fg: #e6e6e6;
+      --muted: #82828a;
+      --line: #3a3a3e;
+      --accent: #5b8def;
+      --good: #57c98a;
+      --bad: #f07070;
+    }
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { font-size: 150%; }
   body {
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     background: var(--bg);
@@ -24,7 +38,7 @@
     justify-content: center;
   }
   main {
-    width: min(90vw, 480px);
+    width: min(92vw, 560px);
     text-align: center;
   }
   #stats {
@@ -57,7 +71,7 @@
     text-align: center;
     padding: 0.6rem 1rem;
     border: none;
-    border-bottom: 2px solid #ddd;
+    border-bottom: 2px solid var(--line);
     background: transparent;
     outline: none;
     transition: border-color 0.2s;
