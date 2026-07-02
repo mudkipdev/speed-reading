@@ -142,9 +142,9 @@ for (const tier in ENCODED) WORDS[tier] = decodeTier(ENCODED[tier]);
 
 const STREAK_TO_LEVEL_UP = 5;        // correct answers in a row to level up
 const MISSES_TO_LEVEL_DOWN = 2;      // total misses within a level to level down
-const START_SYLLABLE_DURATION = 450; // ms per syllable at level 1
+const START_SYLLABLE_DURATION = 700; // ms per syllable at level 1
 const MIN_SYLLABLE_DURATION = 45;
-const DURATION_FACTOR = 0.94;        // per-syllable time shrinks 6% per level (very slow)
+const DURATION_FACTOR = 0.88;        // per-syllable time shrinks 12% per level
 
 const display = document.getElementById("display");
 const answer = document.getElementById("answer");
